@@ -104,5 +104,69 @@ def delete_user(id_user):
     
     return jsonify({"message": "Usuário não encontrado"}), 404
 
+@app.route('/diets', methods=['POST'])
+@login_required
+def create_diet():
+    data = request.get_json()
+    new_diet = Diet(
+        name=data['name'], 
+        description=data.get('description'), 
+        date=data['date'], 
+        in_diet=bool(data['in_diet'].lower() == 'true'),
+        user_id=current_user.id
+    )
+    db.session.add(new_diet)
+    db.session.commit()
+    return jsonify(new_diet.to_dict())
+
+@app.route('/diets/<int:user_id>', methods=['GET'])
+@login_required
+def read_diets(user_id):
+    diets = Diet.query.filter_by(user_id=user_id).all()
+
+    if diets and current_user.id == user_id:
+        return jsonify([diet.to_dict() for diet in diets])
+    
+    return jsonify({"message": "Nenhuma refeição encontrada"}), 404
+
+
+@app.route('/diets/<int:diet_id>', methods=['PUT'])
+@login_required
+def update_diet(diet_id):
+    data = request.get_json()
+    diet = Diet.query.get(diet_id)
+
+    if not diet:
+        return jsonify({"message": "Refeição não encontrada"}), 404
+
+    if diet.user_id != current_user.id:
+        return jsonify({"message": "Não autorizado"}), 403
+
+    diet.name = data.get('name', diet.name)
+    diet.description = data.get('description', diet.description)
+    diet.date = data.get('date', diet.date)
+    diet.in_diet = bool(data['in_diet'].lower() == 'true') if 'in_diet' in data else diet.in_diet
+
+    db.session.commit()
+    return jsonify(diet.to_dict())
+
+
+@app.route('/diets/<int:diet_id>', methods=['DELETE'])
+@login_required
+def delete_diet(diet_id):
+    diet = Diet.query.get(diet_id)
+
+    if not diet:
+        return jsonify({"message": "Refeição não encontrada"}), 404
+
+    if diet.user_id != current_user.id:
+        return jsonify({"message": "Não autorizado"}), 403
+
+    db.session.delete(diet)
+    db.session.commit()
+    return jsonify({"message": "Refeição deletada com sucesso"})
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
